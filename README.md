@@ -1,76 +1,85 @@
-Homebrew Cookbook
-=================
-This cookbook installs [Homebrew](http://mxcl.github.com/homebrew/) and replaces MacPorts as the *default package provider* for the package resource on OS X systems.
+# Homebrew Cookbook
 
-This cookbook is now maintained by Opscode. The original author, maintainer and copyright holder is Graeme Mathieson. The cookbook remains licensed under the Apache License version 2.
+[![Build Status](https://travis-ci.org/chef-cookbooks/homebrew.svg?branch=master)](http://travis-ci.org/chef-cookbooks/homebrew) [![Cookbook Version](https://img.shields.io/cookbook/v/homebrew.svg)](https://supermarket.chef.io/cookbooks/homebrew)
 
-[Original blog post by Graeme](http://woss.name/2011/01/23/converging-your-home-directory-with-chef/)
+This cookbook installs [Homebrew](http://brew.sh/) and provides resources for working with taps and casks
 
+## Requirements
 
-Requirements
-------------
-### Prerequisites
+### Platforms
 
-In order for this recipe to work, your userid must own `/usr/local`. This is outside the scope of the cookbook because it's anticipated that you'll run the cookbook as your own user, not root and you'd have to be root to take ownership of the directory. Easiest way to get started:
+- macOS
 
-```bash
-sudo chown -R `whoami`:staff /usr/local
-```
+### Chef
 
-Bear in mind that this will take ownership of the entire folder and its contents, so if you've already got stuff in there (eg MySQL owned by a `mysql` user) you'll need to be a touch more careful. This is a recommendation from Homebrew.
+- Chef 12.7+
 
-### Platform
+### Cookbooks
 
-- Mac OS X (10.6+)
+- none
 
-The only platform supported by Homebrew itself at the time of this writing is Mac OS X. It should work fine on Server edition as well, and on platforms that Homebrew supports in the future.
+## Attributes
 
-
-Attributes
-----------
 - `node['homebrew']['owner']` - The user that will own the Homebrew installation and packages. Setting this will override the default behavior which is to use the non-privileged user that has invoked the Chef run (or the `SUDO_USER` if invoked with sudo). The default is `nil`.
-- `node['homebrew']['auto-update']` - Whether the default recipe should automatically update homebrew each run or not. The default is `true` to maintain compatibility. Set to false or nil to disable. Note that disabling this feature may cause formula to not work.
-- `node['homebrew']['formulas']` - An Array of formula that should be installed using homebrew by default, used only in the `homebrew::install_formulas` recipe.
+- `node['homebrew']['auto-update']` - Whether the default recipe should automatically update Homebrew each run or not. The default is `true` to maintain compatibility. Set to false or nil to disable. Note that disabling this feature may cause formula to not work.
+- `node['homebrew']['formulas']` - An Array of formula that should be installed using Homebrew by default, used only in the `homebrew::install_formulas` recipe.
+
+  - To install the most recent version, include just the recipe name: `- simple_formula`
+  - To install a specific version, specify both its name and version:
+
+    ```
+    - name: special-version-formula
+      version: 1.2.3
+    ```
+
+  - To install the HEAD of a formula, specify both its name and `head: true`:
+
+    ```
+    - name: head-tracking-formula
+      head: true
+    ```
+
+  - To provide other options, specify both its name and options
+
+    ```
+    - name: formula-with-options
+      options: --with-option-1 --with-other-option
+    ```
+
 - `node['homebrew']['casks']` - An Array of casks that should be installed using brew cask by default, used only in the `homebrew::install_casks` recipe.
 
-Resources and Providers
------------------------
-### package / homebrew\_package
+- `node['homebrew']['taps']` - An Array of taps that should be installed using brew tap by default, used only in the `homebrew::install_taps` recipe. For example:<br>
+  ```ruby
+  [
+    'homebrew/science',
+    # 'tap' is the only required key for the Hash
+    { 'tap' => 'homebrew/dupes', 'url' => 'https://github.com', 'full' => true }
+  ]
+  ```
 
-This cookbook provides a package provider called `homebrew_package` which will install/remove packages using Homebrew. This becomes the default provider for `package` if your platform is Mac OS X.
+## Resources (provider)
 
-As this extends the built-in package resource/provider in Chef, it has all the resource attributes and actions available to the package resource. However, a couple notes:
-
-- Homebrew itself doesn't have a notion of "upgrade" per se. The "upgrade" action will simply perform an install, and if the Homebrew Formula for the package is newer, it will upgrade.
-- Likewise, Homebrew doesn't have a purge, but the "purge" action will act like "remove".
-
-#### Examples
-
-```ruby
-package 'mysql' do
-  action :install
-end
-
-homebrew_package 'mysql'
-
-package 'mysql' do
-  provider Chef::Provider::Package::Homebrew
-end
-
-package 'wireshark' do
-  options '--with-qt --devel'
-end
-```
-
-### homebrew\_tap
+### homebrew_tap
 
 LWRP for `brew tap`, a Homebrew command used to add additional formula repositories. From the `brew` man page:
 
 ```text
-tap [tap]
-       Tap a new formula repository from GitHub, or list existing taps.
+brew tap [--full] user/repo [URL]
+    Tap a formula repository.
 
-       tap is of the form user/repo, e.g. brew tap homebrew/dupes.
+    With URL unspecified, taps a formula repository from GitHub using HTTPS.
+    Since so many taps are hosted on GitHub, this command is a shortcut for
+    tap user/repo https://github.com/user/homebrew-repo.
+
+    With URL specified, taps a formula repository from anywhere, using
+    any transport protocol that git handles. The one-argument form of tap
+    simplifies but also limits. This two-argument command makes no
+    assumptions, so taps can be cloned from places other than GitHub and
+    using protocols other than HTTPS, e.g., SSH, GIT, HTTP, FTP(S), RSYNC.
+
+    By default, the repository is cloned as a shallow copy (--depth=1), but
+    if --full is passed, a full clone will be used. To convert a shallow copy
+    to a full copy, you can retap passing --full without first untapping.
 ```
 
 Default action is `:tap` which enables the repository. Use `:untap` to disable a tapped repository.
@@ -83,63 +92,74 @@ homebrew_tap 'homebrew/dupes'
 homebrew_tap 'homebrew/dupes' do
   action :untap
 end
+
+homebrew_tap 'homebrew/dupes' do
+  url 'https://github.com/homebrew/homebrew-dupes.git'
+  full true
+end
 ```
 
-## homebrew\_cask
+### homebrew_cask
 
-LWRP for `brew cask`, a Homebrew-style CLI workflow for the administration
-of Mac applications distributed as binaries. It's implemented as a homebrew
-"external command" called cask.
+LWRP for `brew cask`, a Homebrew-style CLI workflow for the administration of Mac applications distributed as binaries. It's implemented as a homebrew "external command" called cask.
 
 [homebrew-cask on GitHub](https://github.com/caskroom/homebrew-cask)
 
-### Prerequisites
+#### Prerequisites
 
 You must have the homebrew-cask repository tapped.
 
-    homebrew_tap 'caskroom/cask'
+```ruby
+homebrew_tap 'caskroom/cask'
+```
 
 And then install the homebrew cask package before using this LWRP.
 
-    package "brew-cask" do
-      action :install
-    end
+```ruby
+package "brew-cask" do
+  action :install
+end
+```
 
 You can include the `homebrew::cask` recipe to do this.
 
 ### Examples
 
-    homebrew_cask "google-chrome"
+```ruby
+homebrew_cask "google-chrome"
 
-    homebrew_cask "google-chrome" do
-      action :uncask
-    end
+homebrew_cask "google-chrome" do
+  action :uncask
+end
+```
 
-Default action is `:cask` which installs the Application binary . Use `:uncask` to
-uninstall a an Application.
+Default action is `:cask` which installs the Application binary . Use `:uncask` to uninstall a an Application.
 
 [View the list of available Casks](https://github.com/caskroom/homebrew-cask/tree/master/Casks)
 
+# Usage
 
-Usage
------
 We strongly recommend that you put "recipe[homebrew]" in your node's run list, to ensure that it is available on the system and that Homebrew itself gets installed. Putting an explicit dependency in the metadata will cause the cookbook to be downloaded and the library loaded, thus resulting in changing the package provider on Mac OS X, so if you have systems you want to use the default (Mac Ports), they would be changed to Homebrew.
 
-The default itself ensures that Homebrew is installed and up to date.
+The default recipe also ensures that Homebrew is installed and up to date if the auto update attribute (above) is true (default).
 
+## License and Authors
 
-License and Authors
--------------------
-- Author:: Graeme Mathieson (<mathie@woss.name>)
-- Author:: Joshua Timberman (<joshua@opscode.com>)
+This cookbook is maintained by CHEF. The original author, maintainer and copyright holder is Graeme Mathieson. The cookbook remains licensed under the Apache License version 2.
+
+[Original blog post by Graeme](https://woss.name/articles/converging-your-home-directory-with-chef/)
+
+Author:: Graeme Mathieson ([mathie@woss.name](mailto:mathie@woss.name))
+
+Author:: Joshua Timberman ([joshua@chef.io](mailto:joshua@chef.io))
 
 ```text
 Copyright:: 2011, Graeme Mathieson
-Copyright:: 2012, Opscode, Inc <legal@opscode.com>
+Copyright:: 2012-2016, Chef Software, Inc. <legal@chef.io>
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may
-not use this file except in compliance with the License. You may obtain
-a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 

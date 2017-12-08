@@ -1,5 +1,7 @@
-source 'https://supermarket.getchef.com'
+source 'https://supermarket.chef.io'
+
 metadata
 
-cookbook 'build-essential'
-cookbook 'test', :path => 'test/fixtures/cookbooks/test'
+group :integration do
+  cookbook 'test', path: 'test/cookbooks/test'
+end

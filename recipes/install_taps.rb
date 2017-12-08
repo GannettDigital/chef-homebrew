@@ -1,8 +1,8 @@
 #
 # Cookbook:: homebrew
-# Recipe:: install_casks
+# Recipes:: install_taps
 #
-# Copyright:: 2014-2017, Chef Software, Inc <legal@chef.io>
+# Copyright:: 2015-2017, Chef Software, Inc <legal@chef.io>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,18 @@
 # limitations under the License.
 #
 
-include_recipe 'homebrew::cask'
+include_recipe 'homebrew'
 
-node['homebrew']['casks'].each do |cask|
-  homebrew_cask cask
+node['homebrew']['taps'].each do |tap|
+  if tap.is_a?(String)
+    homebrew_tap tap
+  elsif tap.is_a?(Hash)
+    raise unless tap.key?('tap')
+    homebrew_tap tap['tap'] do
+      url tap['url'] if tap.key?('url')
+      full tap['full'] if tap.key?('full')
+    end
+  else
+    raise
+  end
 end
